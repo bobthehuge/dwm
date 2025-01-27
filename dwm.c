@@ -207,13 +207,14 @@ static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 static void setfocus(Client *c);
 static void setfullscreen(Client *c, int fullscreen);
+static void my_setkblayout(const Arg *arg);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setup(void);
 static void seturgent(Client *c, int urg);
 static void showhide(Client *c);
 static void spawn(const Arg *arg);
-static void rot_kb();
+static void my_rotkblayout(const Arg *arg);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
@@ -1629,6 +1630,7 @@ setup(void)
 	XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
 	XSelectInput(dpy, root, wa.event_mask);
 	grabkeys();
+	my_setkblayout(&(Arg){0});
 	focus(NULL);
 }
 
@@ -1686,20 +1688,26 @@ spawn(const Arg *arg)
 }
 
 void
-rot_kb()
+my_rotkblayout(const Arg *args)
 {
-	if (kbidx < 0)
-	{
-		kbidx = 0;
-	}
+	Arg arg;
+	arg.i = (kbidx + 1) % LENGTH(kb_layouts);
+	my_setkblayout(&arg);
+}
 
+void
+my_setkblayout(const Arg *args)
+{
 	int oldidx = kbidx;
 	const KbLayout *oldkb = kb;
-	
-	kbidx += 1;
-	kbidx %= LENGTH(kb_layouts);
+
+	kbidx = args[0].i;
+
+	if (kbidx < 0)
+		kbidx = 0;
+
 	kb = kb_layouts + kbidx;
-	
+
 	struct sigaction sa;
 	
 	if (fork() == 0) {

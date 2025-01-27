@@ -1,21 +1,24 @@
 /* See LICENSE file for copyright and license details. */
 
+#include <stdlib.h>
+
 /* appearance */
 static const unsigned int borderpx  = 1;        /* border pixel of windows */
 static const unsigned int snap      = 32;       /* snap pixel */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
-static const char *fonts[]          = { "monospace:size=10" };
-static const char dmenufont[]       = "monospace:size=10";
+static const char *fonts[]          = { "monospace:size=11" };
+static const char dmenufont[]       = "monospace:size=11";
 static const char col_gray1[]       = "#222222";
 static const char col_gray2[]       = "#444444";
 static const char col_gray3[]       = "#bbbbbb";
 static const char col_gray4[]       = "#eeeeee";
 static const char col_cyan[]        = "#005577";
+static const char col_cyan2[]       = "#00fff7";
 static const char *colors[][3]      = {
     /*               fg         bg         border   */
     [SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
-    [SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
+    [SchemeSel]  = { col_gray4, col_cyan,  col_cyan2 },
 };
 
 /* tagging */
@@ -107,9 +110,9 @@ static const Key fr_keys[] = {
     TAGKEYS(                        0xE8,                               6)
     TAGKEYS(                        0x5F,                               7)
     TAGKEYS(                        0xE7,                               8)
-    /* { MODKEY|ShiftMask,             XK_e,           quit,               {0} }, */
+    { MODKEY|ShiftMask,             XK_r,           quit,               {0} },
     { MODKEY|ShiftMask,             XK_e,           spawn,              {.v = powermenu } },
-    { MODKEY|ControlMask,           XK_space,       rot_kb,             {0} },
+    { MODKEY|ControlMask,           XK_space,       my_rotkblayout,     {0} },
 };
 
 static const Key us_keys[] = {
@@ -117,18 +120,18 @@ static const Key us_keys[] = {
     { MODKEY,                       XK_d,           spawn,              {.v = dmenucmd } },
     { MODKEY,                       XK_Return,      spawn,              {.v = termcmd } },
     { MODKEY,                       XK_b,           togglebar,          {0} },
-    { MODKEY,                       0xFF52,         focusstack,         {.i = +1 } },
-    { MODKEY,                       0xFF54,         focusstack,         {.i = -1 } },
+    { MODKEY,                       XK_Right,       focusstack,         {.i = +1 } },
+    { MODKEY,                       XK_Left,        focusstack,         {.i = -1 } },
     { MODKEY,                       XK_i,           incnmaster,         {.i = +1 } },
     { MODKEY,                       XK_p,           incnmaster,         {.i = -1 } },
-    { MODKEY,                       0xFF51,         setmfact,           {.f = -0.05} },
-    { MODKEY,                       0xFF53,         setmfact,           {.f = +0.05} },
+    { MODKEY|ShiftMask,             XK_Left,        setmfact,           {.f = -0.05} },
+    { MODKEY|ShiftMask,             XK_Right,       setmfact,           {.f = +0.05} },
     { MODKEY|ShiftMask,             XK_Return,      zoom,               {0} },
     { MODKEY,                       XK_Tab,         view,               {0} },
     { MODKEY|ShiftMask,             XK_q,           killclient,         {0} },
     { MODKEY,                       XK_t,           setlayout,          {.v = &layouts[0]} },
-    /* { MODKEY,                       XK_f,           setlayout,          {.v = &layouts[1]} }, */
-    /* { MODKEY,                       XK_m,           setlayout,          {.v = &layouts[2]} }, */
+    { MODKEY,                       XK_f,           setlayout,          {.v = &layouts[1]} },
+    { MODKEY,                       XK_m,           setlayout,          {.v = &layouts[2]} },
     { MODKEY,                       XK_space,       setlayout,          {0} },
     { MODKEY|ShiftMask,             XK_space,       togglefloating,     {0} },
     { MODKEY,                       XK_0,           view,               {.ui = ~0 } },
@@ -151,17 +154,17 @@ static const Key us_keys[] = {
     TAGKEYS(                        XK_7,                               6)
     TAGKEYS(                        XK_8,                               7)
     TAGKEYS(                        XK_9,                               8)
-    /* { MODKEY|ShiftMask,             XK_e,           quit,               {0} }, */
+    { MODKEY|ShiftMask,             XK_r,           quit,               {0} },
     { MODKEY|ShiftMask,             XK_e,           spawn,              {.v = powermenu } },
-    { MODKEY|ControlMask,           XK_space,       rot_kb,             {0} },
+    { MODKEY|ControlMask,           XK_space,       my_rotkblayout,     {0} },
 };
 
 static const char *kbmap_fr[] = { "setxkbmap", "fr", NULL };
 static const char *kbmap_us[] = { "setxkbmap", "us", NULL };
 
 static const KbLayout kb_layouts[] = {
-    { .kbmap = kbmap_fr,    .keys = fr_keys,    .keys_len = LENGTH(fr_keys) },
     { .kbmap = kbmap_us,    .keys = us_keys,    .keys_len = LENGTH(us_keys) },
+    { .kbmap = kbmap_fr,    .keys = fr_keys,    .keys_len = LENGTH(fr_keys) },
 };
 
 /* button definitions */
