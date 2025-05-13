@@ -177,6 +177,7 @@ static void focusin(XEvent *e);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Atom getatomprop(Client *c, Atom prop);
+static char *my_getdwmpath(void);
 static int getrootptr(int *x, int *y);
 static long getstate(Window w);
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
@@ -200,6 +201,7 @@ static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void restack(Monitor *m);
+static void my_restart(const Arg *arg);
 static void run(void);
 static void scan(void);
 static int sendevent(Client *c, Atom proto);
@@ -890,6 +892,49 @@ getatomprop(Client *c, Atom prop)
 	return atom;
 }
 
+// https://dwm.suckless.org/patches/selfrestart/
+char *
+my_getdwmpath(void)
+{
+    struct stat s;
+    int r, length, rate = 42;
+    char *path = NULL;
+
+    if (lstat("/proc/self/exe", &s) == -1)
+    {
+        perror("lstat:");
+        return NULL;
+    }
+
+    length = s.st_size + 1 - rate;
+
+    do
+    {
+        length += rate;
+
+        free(path);
+        path = malloc(sizeof(char) * length);
+
+        if(path == NULL)
+        {
+            perror("malloc:");
+            return NULL;
+        }
+
+        r = readlink("/proc/self/exe", path, length);
+
+        if(r == -1)
+        {
+            perror("readlink:");
+            return NULL;
+        }
+    } while(r >= length);
+
+    path[r] = '\0';
+
+    return path;
+}
+
 int
 getrootptr(int *x, int *y)
 {
@@ -1320,9 +1365,14 @@ void
 resizemouse(const Arg *arg)
 {
 	int ocx, ocy, nw, nh;
+	int ocx2, ocy2, nx, ny;
 	Client *c;
 	Monitor *m;
 	XEvent ev;
+	int horizcorner, vertcorner;
+	int di;
+	unsigned int dui;
+	Window dummy;
 	Time lasttime = 0;
 
 	if (!(c = selmon->sel))
@@ -1332,10 +1382,18 @@ resizemouse(const Arg *arg)
 	restack(selmon);
 	ocx = c->x;
 	ocy = c->y;
+	ocx2 = c->x + c->w;
+	ocy2 = c->y + c->h;
 	if (XGrabPointer(dpy, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync,
 		None, cursor[CurResize]->cursor, CurrentTime) != GrabSuccess)
 		return;
-	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w + c->bw - 1, c->h + c->bw - 1);
+	// XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w + c->bw - 1, c->h + c->bw - 1);
+	if (!XQueryPointer (dpy, c->win, &dummy, &dummy, &di, &di, &nx, &ny, &dui))
+		return;
+	horizcorner = nx < c->w / 2;
+	vertcorner  = ny < c->h / 2;
+	XWarpPointer (dpy, None, c->win, 0, 0, 0, 0, horizcorner ? (-c->bw) : (c->w + c->bw -1), vertcorner  ? (-c->bw) : (c->h + c->bw -1));
+	
 	do {
 		XMaskEvent(dpy, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
 		switch(ev.type) {
@@ -1349,8 +1407,18 @@ resizemouse(const Arg *arg)
 				continue;
 			lasttime = ev.xmotion.time;
 
-			nw = MAX(ev.xmotion.x - ocx - 2 * c->bw + 1, 1);
-			nh = MAX(ev.xmotion.y - ocy - 2 * c->bw + 1, 1);
+			// nw = MAX(ev.xmotion.x - ocx - 2 * c->bw + 1, 1);
+			// nh = MAX(ev.xmotion.y - ocy - 2 * c->bw + 1, 1);
+			nx = horizcorner && ocx2 - ev.xmotion.x >= c->minw ? ev.xmotion.x : c->x;
+			ny = vertcorner && ocy2 - ev.xmotion.y >= c->minh ? ev.xmotion.y : c->y;
+			nw = MAX(horizcorner ? (ocx2 - nx) : (ev.xmotion.x - ocx - 2 * c->bw + 1), 1);
+			nh = MAX(vertcorner ? (ocy2 - ny) : (ev.xmotion.y - ocy - 2 * c->bw + 1), 1);
+
+			if (horizcorner && ev.xmotion.x > ocx2)
+				nx = ocx2 - (nw = c->minw);
+			if (vertcorner && ev.xmotion.y > ocy2)
+				ny = ocy2 - (nh = c->minh);
+	
 			if (c->mon->wx + nw >= selmon->wx && c->mon->wx + nw <= selmon->wx + selmon->ww
 			&& c->mon->wy + nh >= selmon->wy && c->mon->wy + nh <= selmon->wy + selmon->wh)
 			{
@@ -1359,12 +1427,12 @@ resizemouse(const Arg *arg)
 					togglefloating(NULL);
 			}
 			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
-				resize(c, c->x, c->y, nw, nh, 1);
+				resize(c, nx, ny, nw, nh, 1);
 			break;
 		}
 	} while (ev.type != ButtonRelease);
-	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, c->w + c->bw - 1, c->h + c->bw - 1);
 	XUngrabPointer(dpy, CurrentTime);
+	XWarpPointer(dpy, None, c->win, 0, 0, 0, 0, horizcorner ? (-c->bw) : (c->w + c->bw - 1), vertcorner ? (-c->bw) : (c->h + c->bw - 1));
 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
 	if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
 		sendmon(c, m);
@@ -1396,6 +1464,18 @@ restack(Monitor *m)
 	}
 	XSync(dpy, False);
 	while (XCheckMaskEvent(dpy, EnterWindowMask, &ev));
+}
+
+// https://dwm.suckless.org/patches/selfrestart/
+void
+my_restart(const Arg *arg)
+{
+    char *const argv[] = { my_getdwmpath(), NULL };
+
+    if (argv[0] == NULL)
+        return;
+
+    execv(argv[0], argv);
 }
 
 void
